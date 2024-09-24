@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import sparseconvnet as scn
 
 class ToyAutoencoder(nn.Module):
     def __init__(self, input_dim, z_dim):
@@ -88,3 +89,60 @@ class ConvAutoencoder(nn.Module):
         encoded = self.encoder(x)
         decoded = self.decoder(encoded)
         return decoded
+
+
+class SparseAutoencoder(nn.Module):
+    def __init__(self, z_dim):
+        super(SparseAutoencoder, self).__init__()
+
+        # Encoder
+        self.input_layer = scn.InputLayer(2, 512*1024, mode=3)
+        self.encoder = nn.Sequential(
+            scn.SubmanifoldConvolution(2, 1, 32, 5, False),
+            scn.LeakyReLU(),
+            scn.MaxPooling(2, 2, 2),
+            
+            scn.SubmanifoldConvolution(2, 32, 64, 5, False),
+            scn.LeakyReLU(),
+            scn.MaxPooling(2, 2, 2),
+            
+            scn.SubmanifoldConvolution(2, 64, 128, 5, False),
+            scn.LeakyReLU(),
+            scn.MaxPooling(2, 2, 2),
+            
+            scn.SubmanifoldConvolution(2, 128, 256, 3, False),
+            scn.LeakyReLU(),
+            scn.MaxPooling(2, 2, 2),
+            
+            scn.SubmanifoldConvolution(2, 256, 512, 3, False),
+            scn.LeakyReLU(),
+            scn.MaxPooling(2, 2, 2)
+        )
+        
+        self.pooling = nn.Sequential(nn.AdaptiveAvgPool1d(646), nn.Flatten(0,-1))
+        
+        self.linear = nn.Linear(512*646, z_dim)
+        
+        # Decoder
+        self.decoder = nn.Sequential(
+            nn.Linear(z_dim, 512 * 17 * 38),
+            nn.Unflatten(0, (512, 17, 38)),
+            nn.ConvTranspose2d(512, 256, kernel_size=3, stride=2, padding=1, output_padding=(1, 0)),
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, output_padding=(0, 1)),
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(128, 64, kernel_size=5, stride=2, padding=2, output_padding=(1,1)),
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(64, 32, kernel_size=5, stride=2, padding=2, output_padding=(0,1)),
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(32, 1, kernel_size=5, stride=2, padding=2, output_padding=(1,1)),
+            nn.Sigmoid()
+        ) 
+
+    def forward(self, x):
+        x = self.input_layer(x)
+        x = self.encoder(x).features.T
+        x = self.pooling(x)
+        x = self.linear(x)
+        x = self.decoder(x)
+        return x
