@@ -1,2 +1,2 @@
 # PersonalUbooneProject
-A personal project to experiment with using autoencoders and CV techniques on open access data from the MicroBooNE experiment.
+A personal project to experiment with using autoencoders to compress open access data from the MicroBooNE experiment. The ConvAutoencoder is simple and works reasonably well. The SparseConvAutoencoder tries to compress data in its sparse format using submanifold convolutional layers in the encoder as they are well suited to LArTPC data, but so far I have not achieved a good quality of reconstruction upon decompression.
